@@ -1,0 +1,54 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// Pole represents a distribution pole with GPS location and optional device id
+model Pole {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  latitude    Float
+  longitude   Float
+  deviceId    String?
+  // Relations
+  telemetries Telemetry[]
+  // If this pole is a distribution transformer, it may have children (downstream poles)
+  children    Pole[]   @relation("ParentChild")
+  parentId    String?
+  parent      Pole?    @relation(name: "ParentChild", fields: [parentId], references: [id])
+}
+
+// Telemetry reports live/dark state from a pole device
+model Telemetry {
+  id        String   @id @default(uuid())
+  poleId    String
+  pole      Pole     @relation(fields: [poleId], references: [id])
+  timestamp DateTime @default(now())
+  isLive    Boolean
+}
+
+// FaultTicket tracks a detected fault and its resolution status
+model FaultTicket {
+  id               String   @id @default(uuid())
+  createdAt        DateTime @default(now())
+  resolvedAt       DateTime?
+  status           TicketStatus @default(PENDING)
+  // The fault is localized to a span between two poles
+  spanStartPoleId  String
+  spanEndPoleId    String
+  spanStartPole    Pole @relation("SpanStart", fields: [spanStartPoleId], references: [id])
+  spanEndPole      Pole @relation("SpanEnd", fields: [spanEndPoleId], references: [id])
+  confidence       Float   // 0..1 confidence score
+  description      String?
+}
+
+enum TicketStatus {
+  PENDING
+  CONFIRMED
+  RESOLVED
+  CLOSED
+}
