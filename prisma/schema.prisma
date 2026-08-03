@@ -4,22 +4,24 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
+  url      = env("DATABASE_URL")
 }
 
 // Pole represents a distribution pole with GPS location and optional device id
 model Pole {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  latitude    Float
-  longitude   Float
-  deviceId    String?
+  id               String        @id @default(uuid())
+  name             String        @unique
+  latitude         Float
+  longitude        Float
+  deviceId         String?
   // Relations
-  telemetries Telemetry[]
+  telemetries      Telemetry[]
+  spanStartTickets FaultTicket[] @relation("SpanStart")
+  spanEndTickets   FaultTicket[] @relation("SpanEnd")
   // If this pole is a distribution transformer, it may have children (downstream poles)
-  children    Pole[]   @relation("ParentChild")
-  parentId    String?
-  parent      Pole?    @relation(name: "ParentChild", fields: [parentId], references: [id])
+  children         Pole[]        @relation("ParentChild")
+  parentId         String?
+  parent           Pole?         @relation(name: "ParentChild", fields: [parentId], references: [id])
 }
 
 // Telemetry reports live/dark state from a pole device
@@ -33,22 +35,15 @@ model Telemetry {
 
 // FaultTicket tracks a detected fault and its resolution status
 model FaultTicket {
-  id               String   @id @default(uuid())
-  createdAt        DateTime @default(now())
-  resolvedAt       DateTime?
-  status           TicketStatus @default(PENDING)
+  id              String    @id @default(uuid())
+  createdAt       DateTime  @default(now())
+  resolvedAt      DateTime?
+  status          String    @default("PENDING") // PENDING, CONFIRMED, RESOLVED, CLOSED
   // The fault is localized to a span between two poles
-  spanStartPoleId  String
-  spanEndPoleId    String
-  spanStartPole    Pole @relation("SpanStart", fields: [spanStartPoleId], references: [id])
-  spanEndPole      Pole @relation("SpanEnd", fields: [spanEndPoleId], references: [id])
-  confidence       Float   // 0..1 confidence score
-  description      String?
-}
-
-enum TicketStatus {
-  PENDING
-  CONFIRMED
-  RESOLVED
-  CLOSED
+  spanStartPoleId String
+  spanEndPoleId   String
+  spanStartPole   Pole      @relation("SpanStart", fields: [spanStartPoleId], references: [id])
+  spanEndPole     Pole      @relation("SpanEnd", fields: [spanEndPoleId], references: [id])
+  confidence      Float // 0..1 confidence score
+  description     String?
 }
