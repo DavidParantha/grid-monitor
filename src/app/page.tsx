@@ -35,19 +35,19 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [aiSummaries, setAiSummaries] = useState<Record<string, string>>({});
   const [aiLoading, setAiLoading] = useState<Record<string, boolean>>({});
-  const [toast, setToast] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
 
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 4000);
+  const showMsg = (m: string) => {
+    setMsg(m);
+    setTimeout(() => setMsg(null), 4000);
   };
 
   const fetchData = async () => {
     try {
       const resPoles = await fetch("/api/telemetry");
       const dataPoles = await resPoles.json();
-      
-      // Auto-seed on startup if empty (Assignment Gate G3)
+
+      // Auto-seed on startup if empty
       if (dataPoles.success && dataPoles.poles.length === 0) {
         await fetch("/api/seed", { method: "POST" });
         const resPolesRetry = await fetch("/api/telemetry");
@@ -76,7 +76,7 @@ export default function Home() {
     await fetch("/api/seed", { method: "POST" });
     await fetchData();
     setLoading(false);
-    showToast("Synthetic Grid Network Seeded!");
+    showMsg("Grid seeded successfully.");
   };
 
   const handleSimulate = async (action: string) => {
@@ -89,7 +89,7 @@ export default function Home() {
     const data = await res.json();
     await fetchData();
     setLoading(false);
-    showToast(data.message || `Simulation executed: ${action}`);
+    showMsg(data.message || `Done: ${action}`);
   };
 
   const handleResolveTicket = async (ticketId: string) => {
@@ -100,9 +100,9 @@ export default function Home() {
     });
     const data = await res.json();
     if (!data.success) {
-      showToast(`⚠️ ${data.error}`);
+      showMsg(`Error: ${data.error}`);
     } else {
-      showToast("Ticket marked as RESOLVED");
+      showMsg("Ticket marked as RESOLVED");
       fetchData();
     }
   };
@@ -133,228 +133,180 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-6">
-      {/* Toast Notification */}
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 bg-blue-600 text-white px-4 py-2 rounded shadow-lg transition-all animate-bounce">
-          {toast}
+    <div style={{ fontFamily: "monospace", padding: "20px", maxWidth: "1100px", margin: "0 auto" }}>
+      <h1 style={{ fontSize: "20px", borderBottom: "2px solid #333", paddingBottom: "8px" }}>
+        GridMonitor — Power Grid Fault Localization Dashboard
+      </h1>
+      <p style={{ color: "#555", fontSize: "13px" }}>
+        Real-time telemetry ingestion and automated fault localization system.{" "}
+        <span style={{ color: "green" }}>● System Live</span>
+      </p>
+
+      {msg && (
+        <div style={{ background: "#fffbcc", border: "1px solid #ccc", padding: "8px 12px", marginTop: "10px", fontSize: "13px" }}>
+          {msg}
         </div>
       )}
 
-      {/* Navigation Header */}
-      <header className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-slate-800 mb-8">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-            ⚡ GridMonitor Control Room
-          </h1>
-          <p className="text-sm text-slate-400">
-            Real-time Power Grid Telemetry & Automated Fault Localization System
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
+      {/* Controls */}
+      <div style={{ marginTop: "20px", marginBottom: "20px" }}>
+        <strong>Controls:</strong>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "8px" }}>
           <button
             onClick={handleSeed}
             disabled={loading}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded font-medium text-sm transition"
+            style={{ padding: "6px 12px", cursor: "pointer", border: "1px solid #888", background: "#f0f0f0" }}
           >
-            🔄 Reset / Seed Grid
+            Reset / Seed Grid
           </button>
-          <span className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-950 border border-emerald-800 px-3 py-1.5 rounded-full">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-            System Live
-          </span>
+          <button
+            onClick={() => handleSimulate("inject_span_fault")}
+            disabled={loading}
+            style={{ padding: "6px 12px", cursor: "pointer", border: "1px solid #c00", background: "#fff0f0", color: "#c00" }}
+          >
+            Inject Line Span Fault (P2 → P3)
+          </button>
+          <button
+            onClick={() => handleSimulate("inject_sensor_fault")}
+            disabled={loading}
+            style={{ padding: "6px 12px", cursor: "pointer", border: "1px solid #a60", background: "#fffbf0", color: "#a60" }}
+          >
+            Inject Dead Sensor Noise (P2)
+          </button>
+          <button
+            onClick={() => handleSimulate("inject_scheduled_outage")}
+            disabled={loading}
+            style={{ padding: "6px 12px", cursor: "pointer", border: "1px solid #06c", background: "#f0f6ff", color: "#06c" }}
+          >
+            Inject Scheduled Maintenance
+          </button>
+          <button
+            onClick={() => handleSimulate("repair_all")}
+            disabled={loading}
+            style={{ padding: "6px 12px", cursor: "pointer", border: "1px solid #080", background: "#f0fff0", color: "#080" }}
+          >
+            Restore Power (Auto-Verify Repair)
+          </button>
         </div>
-      </header>
+      </div>
 
-      {/* Main Grid Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column: Fault Simulator Controls */}
-        <section className="bg-slate-900 border border-slate-800 rounded-lg p-5 flex flex-col gap-4">
-          <h2 className="text-lg font-semibold text-white border-b border-slate-800 pb-3 flex items-center gap-2">
-            🛠️ Fault & Telemetry Simulator
-          </h2>
-          <p className="text-xs text-slate-400">
-            Inject realistic faults to verify noise filtering, topology graph traversal, and auto-verification.
-          </p>
+      {/* Fault Tickets */}
+      <div style={{ marginBottom: "30px" }}>
+        <h2 style={{ fontSize: "16px", borderBottom: "1px solid #ccc", paddingBottom: "4px" }}>
+          Fault Tickets ({tickets.length}) — Auto-localization active
+        </h2>
 
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={() => handleSimulate("inject_span_fault")}
-              disabled={loading}
-              className="w-full text-left p-3 rounded bg-red-950/40 border border-red-800/60 hover:bg-red-900/50 transition group"
-            >
-              <div className="text-sm font-semibold text-red-400 group-hover:text-red-300">
-                🔴 Inject Line Span Fault
-              </div>
-              <div className="text-xs text-slate-400 mt-1">
-                De-energizes span [Pole P2 ➔ Pole P3]. Generates 0.95 high-confidence ticket.
-              </div>
-            </button>
-
-            <button
-              onClick={() => handleSimulate("inject_sensor_fault")}
-              disabled={loading}
-              className="w-full text-left p-3 rounded bg-amber-950/40 border border-amber-800/60 hover:bg-amber-900/50 transition group"
-            >
-              <div className="text-sm font-semibold text-amber-400 group-hover:text-amber-300">
-                ⚠️ Inject Dead Sensor Noise
-              </div>
-              <div className="text-xs text-slate-400 mt-1">
-                Pole P2 sensor goes dark, but children stay live. Noise filter prevents false ticket!
-              </div>
-            </button>
-
-            <button
-              onClick={() => handleSimulate("inject_scheduled_outage")}
-              disabled={loading}
-              className="w-full text-left p-3 rounded bg-blue-950/40 border border-blue-800/60 hover:bg-blue-900/50 transition group"
-            >
-              <div className="text-sm font-semibold text-blue-400 group-hover:text-blue-300">
-                📅 Inject Scheduled Maintenance
-              </div>
-              <div className="text-xs text-slate-400 mt-1">
-                Simulates scheduled outage window. Ticket generation is suppressed.
-              </div>
-            </button>
-
-            <button
-              onClick={() => handleSimulate("repair_all")}
-              disabled={loading}
-              className="w-full text-left p-3 rounded bg-emerald-950/40 border border-emerald-800/60 hover:bg-emerald-900/50 transition group mt-2"
-            >
-              <div className="text-sm font-semibold text-emerald-400 group-hover:text-emerald-300">
-                💚 Restore Power (Auto-Verify Repair)
-              </div>
-              <div className="text-xs text-slate-400 mt-1">
-                Restores live telemetry to all poles. Automatically resolves active tickets!
-              </div>
-            </button>
-          </div>
-        </section>
-
-        {/* Center/Right Column: Live Grid Poles & Tickets */}
-        <div className="lg:col-span-2 flex flex-col gap-8">
-          {/* Active Tickets Panel */}
-          <section className="bg-slate-900 border border-slate-800 rounded-lg p-5">
-            <h2 className="text-lg font-semibold text-white border-b border-slate-800 pb-3 mb-4 flex items-center justify-between">
-              <span>🎟️ Fault Incidents ({tickets.length})</span>
-              <span className="text-xs text-slate-400 font-normal">Auto-localization active</span>
-            </h2>
-
-            {tickets.length === 0 ? (
-              <div className="py-8 text-center text-slate-500 text-sm">
-                No active grid faults detected. System operating normally.
-              </div>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {tickets.map((t) => (
-                  <div
-                    key={t.id}
-                    className={`p-4 rounded-lg border ${
-                      t.status === "RESOLVED"
-                        ? "bg-slate-950 border-slate-800 opacity-60"
-                        : "bg-slate-950 border-red-900/80"
-                    }`}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs text-slate-400">ID: {t.id.slice(0, 8)}</span>
-                        <span
-                          className={`text-xs font-semibold px-2 py-0.5 rounded ${
-                            t.status === "RESOLVED"
-                              ? "bg-emerald-950 text-emerald-400 border border-emerald-800"
-                              : "bg-red-950 text-red-400 border border-red-800"
-                          }`}
-                        >
-                          {t.status}
-                        </span>
-                        <span className="text-xs text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-900/60">
-                          Confidence: {(t.confidence * 100).toFixed(0)}%
-                        </span>
-                      </div>
+        {tickets.length === 0 ? (
+          <p style={{ color: "#888", fontSize: "13px" }}>No active faults. System operating normally.</p>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", marginTop: "8px" }}>
+            <thead>
+              <tr style={{ background: "#f4f4f4", textAlign: "left" }}>
+                <th style={{ border: "1px solid #ccc", padding: "6px" }}>ID</th>
+                <th style={{ border: "1px solid #ccc", padding: "6px" }}>Status</th>
+                <th style={{ border: "1px solid #ccc", padding: "6px" }}>Confidence</th>
+                <th style={{ border: "1px solid #ccc", padding: "6px" }}>Description</th>
+                <th style={{ border: "1px solid #ccc", padding: "6px" }}>Created</th>
+                <th style={{ border: "1px solid #ccc", padding: "6px" }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tickets.map((t) => (
+                <>
+                  <tr key={t.id} style={{ background: t.status === "RESOLVED" ? "#f9f9f9" : "#fff5f5" }}>
+                    <td style={{ border: "1px solid #ccc", padding: "6px", fontFamily: "monospace", fontSize: "11px" }}>
+                      {t.id.slice(0, 8)}
+                    </td>
+                    <td style={{ border: "1px solid #ccc", padding: "6px" }}>
+                      <span style={{ color: t.status === "RESOLVED" ? "green" : "red" }}>
+                        {t.status}
+                      </span>
+                    </td>
+                    <td style={{ border: "1px solid #ccc", padding: "6px" }}>
+                      {(t.confidence * 100).toFixed(0)}%
+                    </td>
+                    <td style={{ border: "1px solid #ccc", padding: "6px" }}>{t.description}</td>
+                    <td style={{ border: "1px solid #ccc", padding: "6px", fontSize: "11px" }}>
+                      {new Date(t.createdAt).toLocaleString()}
+                    </td>
+                    <td style={{ border: "1px solid #ccc", padding: "6px" }}>
                       {t.status !== "RESOLVED" && (
                         <button
                           onClick={() => handleResolveTicket(t.id)}
-                          className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1 rounded border border-slate-700"
+                          style={{ padding: "3px 8px", cursor: "pointer", marginRight: "6px", fontSize: "12px" }}
                         >
-                          Mark Resolved
+                          Resolve
                         </button>
                       )}
-                    </div>
-
-                    <p className="text-sm text-slate-200 mb-2">{t.description}</p>
-
-                    {/* AI Incident Summary Card */}
-                    <div className="mt-3 p-3 bg-slate-900 border border-slate-800 rounded">
-                      {aiSummaries[t.id] ? (
-                        <div className="text-xs text-purple-300">
-                          <span className="font-bold text-purple-400">🤖 AI Incident Summary:</span>{" "}
-                          {aiSummaries[t.id]}
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => generateAiSummary(t)}
-                          disabled={aiLoading[t.id]}
-                          className="text-xs text-purple-400 hover:text-purple-300 underline flex items-center gap-1"
-                        >
-                          {aiLoading[t.id] ? "Generating Summary..." : "✨ Generate AI Operator Summary"}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* Grid Topology Live Status */}
-          <section className="bg-slate-900 border border-slate-800 rounded-lg p-5">
-            <h2 className="text-lg font-semibold text-white border-b border-slate-800 pb-3 mb-4 flex items-center justify-between">
-              <span>📍 Live Grid Poles & Telemetry ({poles.length})</span>
-              <span className="text-xs text-slate-400 font-normal">Real-time status</span>
-            </h2>
-
-            {poles.length === 0 ? (
-              <div className="py-8 text-center text-slate-500 text-sm">
-                No poles loaded. Click "Reset / Seed Grid" above.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {poles.map((p) => {
-                  const latest = p.telemetries[0];
-                  const isLive = latest ? latest.isLive : true;
-                  return (
-                    <div
-                      key={p.id}
-                      className="p-3 bg-slate-950 border border-slate-800 rounded flex items-center justify-between"
-                    >
-                      <div>
-                        <div className="text-sm font-medium text-slate-200">{p.name}</div>
-                        <div className="text-xs text-slate-500 font-mono">
-                          {p.latitude}, {p.longitude}
-                        </div>
-                      </div>
-                      <span
-                        className={`text-xs font-semibold px-2.5 py-1 rounded flex items-center gap-1.5 ${
-                          isLive
-                            ? "bg-emerald-950 text-emerald-400 border border-emerald-800"
-                            : "bg-red-950 text-red-400 border border-red-800"
-                        }`}
+                      <button
+                        onClick={() => generateAiSummary(t)}
+                        disabled={aiLoading[t.id]}
+                        style={{ padding: "3px 8px", cursor: "pointer", fontSize: "12px" }}
                       >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            isLive ? "bg-emerald-400" : "bg-red-400"
-                          }`}
-                        ></span>
+                        {aiLoading[t.id] ? "..." : "AI Summary"}
+                      </button>
+                    </td>
+                  </tr>
+                  {aiSummaries[t.id] && (
+                    <tr key={`ai-${t.id}`}>
+                      <td colSpan={6} style={{ border: "1px solid #ccc", padding: "8px", background: "#f5f0ff", fontSize: "12px" }}>
+                        <strong>AI Operator Summary:</strong> {aiSummaries[t.id]}
+                      </td>
+                    </tr>
+                  )}
+                </>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Live Poles */}
+      <div>
+        <h2 style={{ fontSize: "16px", borderBottom: "1px solid #ccc", paddingBottom: "4px" }}>
+          Live Grid Poles &amp; Telemetry ({poles.length}) — updates every 3s
+        </h2>
+
+        {poles.length === 0 ? (
+          <p style={{ color: "#888", fontSize: "13px" }}>No poles loaded. Click Reset / Seed Grid.</p>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", marginTop: "8px" }}>
+            <thead>
+              <tr style={{ background: "#f4f4f4", textAlign: "left" }}>
+                <th style={{ border: "1px solid #ccc", padding: "6px" }}>Pole Name</th>
+                <th style={{ border: "1px solid #ccc", padding: "6px" }}>Device ID</th>
+                <th style={{ border: "1px solid #ccc", padding: "6px" }}>Latitude</th>
+                <th style={{ border: "1px solid #ccc", padding: "6px" }}>Longitude</th>
+                <th style={{ border: "1px solid #ccc", padding: "6px" }}>Status</th>
+                <th style={{ border: "1px solid #ccc", padding: "6px" }}>Last Update</th>
+              </tr>
+            </thead>
+            <tbody>
+              {poles.map((p) => {
+                const latest = p.telemetries[0];
+                const isLive = latest ? latest.isLive : true;
+                return (
+                  <tr key={p.id} style={{ background: isLive ? "#fff" : "#fff0f0" }}>
+                    <td style={{ border: "1px solid #ccc", padding: "6px", fontWeight: "bold" }}>{p.name}</td>
+                    <td style={{ border: "1px solid #ccc", padding: "6px", fontFamily: "monospace", fontSize: "11px" }}>
+                      {p.deviceId || "—"}
+                    </td>
+                    <td style={{ border: "1px solid #ccc", padding: "6px" }}>{p.latitude}</td>
+                    <td style={{ border: "1px solid #ccc", padding: "6px" }}>{p.longitude}</td>
+                    <td style={{ border: "1px solid #ccc", padding: "6px" }}>
+                      <span style={{ color: isLive ? "green" : "red", fontWeight: "bold" }}>
                         {isLive ? "LIVE" : "DARK"}
                       </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        </div>
+                    </td>
+                    <td style={{ border: "1px solid #ccc", padding: "6px", fontSize: "11px" }}>
+                      {latest ? new Date(latest.timestamp).toLocaleTimeString() : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
